@@ -9,8 +9,13 @@
 # мы должны сравнивать эти объекты целиком.
 
 # Чтобы я усовершенствовал в текущем коде:
+# Общее:
+# * Добавить возможность считывания данных (из базы данных и файла) с того же места в случае ошибки (например,
+#   пропало сетевое подключение с источником данных)
 # * Вставки и чтения сделал бы через хранимые процедуры на стороне базы, не писал бы SQL конструкции здесь
-# * Попробовал чисто Python подход. Сделал бы так, чтобы adapter_db, adapter_file отдавали итераторы,
+
+# Производительность:
+# * Попробовать чисто Python подход. Сделал бы так, чтобы adapter_db, adapter_file отдавали итераторы,
 #   а processor выполнял вставку в базу данных
 # * Выполнял бы чтения из двух адаптеров параллельно (2 потока)
 # * Выполнял бы чтения из двух адаптеров параллельно и чанками (например, 4 потока на каждый адаптер). Что-то наподобие
@@ -22,7 +27,7 @@ import datetime
 import hashlib
 import time
 
-# Создание глобального подключения к базе данных.
+# Создание глобального подключения к базе данных Oracle.
 cx_Oracle.init_oracle_client(lib_dir="/Users/mlysikov/Downloads/instantclient_19_8")
 conn = cx_Oracle.connect("admin", "***", "db_high")
 conn.autocommit = False
@@ -253,16 +258,20 @@ def recon(tolerance=None):
     conn.commit()
 
 def start_recon():
-    create_tables()
-    generate_test_data()
+    try:
+        create_tables()
+        generate_test_data()
 
-    start = time.time()
+        start = time.time()
 
-    processor(adapter_db, adapter_file)
-    recon(tolerance_value)
-    conn.close()
+        processor(adapter_db, adapter_file)
+        recon(tolerance_value)
 
-    elapsed = (time.time() - start)
-    print("Reconciliation completed in", elapsed, "seconds")
+        elapsed = (time.time() - start)
+        print("Reconciliation completed in", elapsed, "seconds")
+    except Exception:
+        raise
+    finally:
+        conn.close()
 
 start_recon()
